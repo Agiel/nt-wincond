@@ -1,0 +1,24 @@
+"Games"
+{
+	"NeotokyoSource"
+	{
+		"Signatures"
+		{
+			"Sig_CheckWinCondition"
+			{
+				"library"   "server"
+				"windows"	"\x83\xEC\x2C\x53\x55\x56\x8B\xF1\x8B\x86\x8C\x02\x00\x00"
+			}
+		}
+		"Functions"
+		{
+			"Fn_CheckWinCondition"
+			{
+				"signature"	"Sig_CheckWinCondition"
+				"callconv"	"thiscall"
+				"return"	"void"
+				"this"		"address"
+			}
+		}
+	}
+}
