@@ -1,3 +1,12 @@
+// # Changelog
+//
+// ## 0.0.2
+// * Announce ghost capper.
+// * Consider players who haven't spawned in yet as alive for the purpose of rewarding points.
+//
+// ## 0.0.1
+// * Initial release
+
 #include <sourcemod>
 #include <dhooks>
 #include <neotokyo>
@@ -5,7 +14,7 @@
 #pragma semicolon 1
 #pragma newdecls required
 
-#define PLUGIN_VERSION "0.0.1"
+#define PLUGIN_VERSION "0.0.2"
 
 #define TIEBREAKER_ENABLED false
 
@@ -46,7 +55,6 @@ public void OnPluginStart() {
 public void OnEntityCreated(int entity, const char[] classname) {
     if (StrEqual(classname, "weapon_ghost")) {
         g_ghostEntity = EntIndexToEntRef(entity);
-        PrintToServer("ghost spawned: %u", g_ghostEntity);
     }
 }
 
@@ -86,14 +94,14 @@ void RewardWin(int team, bool ghostCapped = false) {
             if (playerTeam == team) {
                 int xp = GetPlayerXP(i);
                 if (ghostCapped) {
-                    if (IsPlayerAlive(i)) {
+                    if (!IsPlayerDead(i)) {
                         xp = RankUp(xp); // Everyone alive goes up a rank
                     } else {
                         xp++; // Consolation prize for the rest
                     }
                 } else {
                     xp++; // +1 for winning
-                    if (IsPlayerAlive(i)) {
+                    if (!IsPlayerDead(i)) {
                         xp++; // +1 for staying alive
                     }
                     if (IsPlayerCarryingGhost(i)) {
@@ -206,9 +214,11 @@ bool CheckGhostCap() {
                     x = x - ghostOrigin[0];
                     y = y - ghostOrigin[1];
                     z = z - ghostOrigin[2];
-                    float distance = x*x + y*y + z*z;
+                    float distance = SquareRoot(x*x + y*y + z*z);
                     int m_Radius = LoadFromAddress(capZone + view_as<Address>(0x364), NumberType_Int32);
-                    if (SquareRoot(distance) <= m_Radius) {
+                    if (distance <= m_Radius) {
+                        // Announce capper
+                        GameRules_SetProp("m_iMVP", carrier);
                         RewardWin(carryingTeam, true);
                         if (carryingTeam == TEAM_JINRAI) {
                             EndRound(GAMEHUD_JINRAI);
