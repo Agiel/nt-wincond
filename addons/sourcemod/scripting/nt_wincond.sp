@@ -1,12 +1,3 @@
-// # Changelog
-//
-// ## 0.0.2
-// * Announce ghost capper.
-// * Consider players who haven't spawned in yet as alive for the purpose of rewarding points.
-//
-// ## 0.0.1
-// * Initial release
-
 #include <sourcemod>
 #include <dhooks>
 #include <neotokyo>
@@ -14,7 +5,7 @@
 #pragma semicolon 1
 #pragma newdecls required
 
-#define PLUGIN_VERSION "0.0.2"
+#define PLUGIN_VERSION "0.0.3"
 
 #define TIEBREAKER_ENABLED false
 
@@ -34,28 +25,20 @@ public Plugin myinfo = {
     url = "https://github.com/Agiel/nt-wincond"
 };
 
-int g_ghostEntity = -1;
-
 public void OnPluginStart() {
-	Handle gd = LoadGameConfigFile("neotokyo/wincond");
-	if (gd == INVALID_HANDLE) {
-		SetFailState("Failed to load GameData");
-	}
-	DynamicDetour dd = DynamicDetour.FromConf(gd, "Fn_CheckWinCondition");
-	if (!dd) {
-		SetFailState("Failed to create dynamic detour");
-	}
-	if (!dd.Enable(Hook_Pre, CheckWinCondition)) {
-		SetFailState("Failed to detour");
-	}
-	delete dd;
-	CloseHandle(gd);
-}
-
-public void OnEntityCreated(int entity, const char[] classname) {
-    if (StrEqual(classname, "weapon_ghost")) {
-        g_ghostEntity = EntIndexToEntRef(entity);
+    Handle gd = LoadGameConfigFile("neotokyo/wincond");
+    if (gd == INVALID_HANDLE) {
+        SetFailState("Failed to load GameData");
     }
+    DynamicDetour dd = DynamicDetour.FromConf(gd, "Fn_CheckWinCondition");
+    if (!dd) {
+        SetFailState("Failed to create dynamic detour");
+    }
+    if (!dd.Enable(Hook_Pre, CheckWinCondition)) {
+        SetFailState("Failed to detour");
+    }
+    delete dd;
+    CloseHandle(gd);
 }
 
 void EndRound(int gameHud) {
@@ -123,15 +106,31 @@ bool IsPlayerDead(int client) {
 }
 
 bool IsPlayerCarryingGhost(int client) {
-    int weapon = GetPlayerWeaponSlot(client, SLOT_PRIMARY);
-    if (!IsValidEntity(weapon)) {
-        return false;
+    static Handle call = INVALID_HANDLE;
+    if (call == INVALID_HANDLE) {
+        StartPrepSDKCall(SDKCall_Player);
+        PrepSDKCall_SetReturnInfo(SDKType_Bool, SDKPass_Plain);
+        PrepSDKCall_SetAddress(view_as<Address>(0x222F25C0));
+        call = EndPrepSDKCall();
+        if (call == INVALID_HANDLE) {
+            SetFailState("Failed to prepare SDK call");
+        }
     }
-    char classname[13];
-    if (!GetEntityClassname(weapon, classname, sizeof(classname))) {
-        return false;
+    return SDKCall(call, client);
+}
+
+bool GetOwner(Address ghost) {
+    static Handle call = INVALID_HANDLE;
+    if (call == INVALID_HANDLE) {
+        StartPrepSDKCall(SDKCall_Raw);
+        PrepSDKCall_SetReturnInfo(SDKType_CBasePlayer, SDKPass_ByRef);
+        PrepSDKCall_SetAddress(view_as<Address>(0x223197E0));
+        call = EndPrepSDKCall();
+        if (call == INVALID_HANDLE) {
+            SetFailState("Failed to prepare SDK call");
+        }
     }
-    return StrEqual(classname, "weapon_ghost");
+    return SDKCall(call, ghost);
 }
 
 bool CheckEliminationOrTimeout() {
@@ -182,51 +181,43 @@ bool CheckEliminationOrTimeout() {
 }
 
 bool CheckGhostCap() {
-    int numGhosts = LoadFromAddress(view_as<Address>(0x225443B8), NumberType_Int32);
     int numCapZones = LoadFromAddress(view_as<Address>(0x22542740), NumberType_Int32);
+    Address capZoneList = view_as<Address>(LoadFromAddress(view_as<Address>(0x22542734), NumberType_Int32));
+    int numGhosts = LoadFromAddress(view_as<Address>(0x225443B8), NumberType_Int32);
+    Address ghostList = view_as<Address>(LoadFromAddress(view_as<Address>(0x225443AC), NumberType_Int32));
+    for (int ghost = 0; ghost < numGhosts; ghost++) {
+        Address p_ghost = view_as<Address>(LoadFromAddress(ghostList + view_as<Address>(ghost * 4), NumberType_Int32));
+        int carrier = GetOwner(p_ghost);
+        if (!IsValidClient(carrier)) {
+            continue;
+        }
 
-    if (numGhosts && IsValidEdict(g_ghostEntity)) {
-        // TODO: NT only cares about the first ghost but we can add a loop here if we want to improve that
+        int carryingTeam = GetClientTeam(carrier);
+        float ghostOrigin[3];
+        GetClientAbsOrigin(carrier, ghostOrigin);
 
-        // TODO: Couldn't figure out how to get carrier's team from memory, so storing ghost index in OnCreateEntity
-        // Address ghostList = view_as<Address>(LoadFromAddress(view_as<Address>(0x225443AC), NumberType_Int32));
-        // Address p_ghost = LoadFromAddress(ghostList, NumberType_Int32);
-        // Address p_owner = LoadFromAddress(p_ghost + view_as<Address>(0x1EC), NumberType_Int32);
-        // if (p_owner > -1) {
-        //     int team = LoadFromAddress(p_owner + view_as<Address>(0x208), NumberType_Int32);
-        //     PrintToServer("owner: %d, team: %d", p_owner, team);  // Garbage?
-        // }
-
-        int carrier = GetEntPropEnt(g_ghostEntity, Prop_Data, "m_hOwnerEntity");
-        if (IsValidClient(carrier)) {
-            int carryingTeam = GetClientTeam(carrier);
-            float ghostOrigin[3];
-            GetClientAbsOrigin(carrier, ghostOrigin);
-
-            Address capZoneList = view_as<Address>(LoadFromAddress(view_as<Address>(0x22542734), NumberType_Int32));
-            for (int i = 0; i < numCapZones; i++) {
-                Address capZone = view_as<Address>(LoadFromAddress(capZoneList + view_as<Address>(i * 4), NumberType_Int32));
-                int m_OwningTeamNumber = LoadFromAddress(capZone + view_as<Address>(0x360), NumberType_Int32);
-                if (carryingTeam == m_OwningTeamNumber) {
-                    float x = view_as<float>(LoadFromAddress(capZone + view_as<Address>(0x354), NumberType_Int32));
-                    float y = view_as<float>(LoadFromAddress(capZone + view_as<Address>(0x358), NumberType_Int32));
-                    float z = view_as<float>(LoadFromAddress(capZone + view_as<Address>(0x35C), NumberType_Int32));
-                    x = x - ghostOrigin[0];
-                    y = y - ghostOrigin[1];
-                    z = z - ghostOrigin[2];
-                    float distance = SquareRoot(x*x + y*y + z*z);
-                    int m_Radius = LoadFromAddress(capZone + view_as<Address>(0x364), NumberType_Int32);
-                    if (distance <= m_Radius) {
-                        // Announce capper
-                        GameRules_SetProp("m_iMVP", carrier);
-                        RewardWin(carryingTeam, true);
-                        if (carryingTeam == TEAM_JINRAI) {
-                            EndRound(GAMEHUD_JINRAI);
-                        } else {
-                            EndRound(GAMEHUD_NSF);
-                        }
-                        return true;
+        for (int capZone = 0; capZone < numCapZones; capZone++) {
+            Address p_capZone = view_as<Address>(LoadFromAddress(capZoneList + view_as<Address>(capZone * 4), NumberType_Int32));
+            int m_OwningTeamNumber = LoadFromAddress(p_capZone + view_as<Address>(0x360), NumberType_Int32);
+            if (carryingTeam == m_OwningTeamNumber) {
+                float x = view_as<float>(LoadFromAddress(p_capZone + view_as<Address>(0x354), NumberType_Int32));
+                float y = view_as<float>(LoadFromAddress(p_capZone + view_as<Address>(0x358), NumberType_Int32));
+                float z = view_as<float>(LoadFromAddress(p_capZone + view_as<Address>(0x35C), NumberType_Int32));
+                x = x - ghostOrigin[0];
+                y = y - ghostOrigin[1];
+                z = z - ghostOrigin[2];
+                float distance = SquareRoot(x*x + y*y + z*z);
+                int m_Radius = LoadFromAddress(p_capZone + view_as<Address>(0x364), NumberType_Int32);
+                if (distance <= m_Radius) {
+                    // Announce capper
+                    GameRules_SetProp("m_iMVP", carrier);
+                    RewardWin(carryingTeam, true);
+                    if (carryingTeam == TEAM_JINRAI) {
+                        EndRound(GAMEHUD_JINRAI);
+                    } else {
+                        EndRound(GAMEHUD_NSF);
                     }
+                    return true;
                 }
             }
         }
