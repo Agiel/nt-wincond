@@ -5,9 +5,7 @@
 #pragma semicolon 1
 #pragma newdecls required
 
-#define PLUGIN_VERSION "0.0.3"
-
-#define TIEBREAKER_ENABLED false
+#define PLUGIN_VERSION "0.0.4"
 
 #define GAMEHUD_TIE 3
 #define GAMEHUD_JINRAI 4
@@ -25,7 +23,20 @@ public Plugin myinfo = {
     url = "https://github.com/Agiel/nt-wincond"
 };
 
+ConVar g_cvTieBreaker;
+ConVar g_cvSwapAttackers;
+
 public void OnPluginStart() {
+    CreateDetour();
+
+    HookEvent("game_round_start", Event_RoundStart);
+
+    CreateConVar("sm_nt_wincond_version", PLUGIN_VERSION, "NT Win Condition version", FCVAR_DONTRECORD);
+    g_cvTieBreaker = CreateConVar("sm_nt_wincond_tiebreaker", "0", "Tie breaker. 0 = disabled, 1 = team with most players alive wins, 2 = defending team wins", _, true, 0.0, true, 2.0);
+    g_cvSwapAttackers = CreateConVar("sm_nt_wincond_swapattackers", "0", "When tie breaker is set to defending team, swap attackers/defenders. Might make some maps more playable.", _, true, 0.0, true, 1.0);
+}
+
+void CreateDetour() {
     Handle gd = LoadGameConfigFile("neotokyo/wincond");
     if (gd == INVALID_HANDLE) {
         SetFailState("Failed to load GameData");
@@ -39,6 +50,25 @@ public void OnPluginStart() {
     }
     delete dd;
     CloseHandle(gd);
+}
+
+Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast) {
+    if (g_cvTieBreaker.IntValue == 2) {
+        CreateTimer(10.0, AnnounceAttacker);
+    }
+
+    return Plugin_Continue;
+}
+
+Action AnnounceAttacker(Handle timer) {
+    int m_iAttackingTeam = GameRules_GetProp("m_iAttackingTeam");
+    if (m_iAttackingTeam == TEAM_JINRAI || (g_cvSwapAttackers.IntValue && m_iAttackingTeam == TEAM_NSF)) {
+        PrintCenterTextAll("- Jinrai are attacking -");
+    } else {
+        PrintCenterTextAll("- NSF are attacking -");
+    }
+
+    return Plugin_Stop;
 }
 
 void EndRound(int gameHud) {
@@ -123,7 +153,7 @@ bool GetOwner(Address ghost) {
     static Handle call = INVALID_HANDLE;
     if (call == INVALID_HANDLE) {
         StartPrepSDKCall(SDKCall_Raw);
-        PrepSDKCall_SetReturnInfo(SDKType_CBasePlayer, SDKPass_ByRef);
+        PrepSDKCall_SetReturnInfo(SDKType_CBasePlayer, SDKPass_Pointer);
         PrepSDKCall_SetAddress(view_as<Address>(0x223197E0));
         call = EndPrepSDKCall();
         if (call == INVALID_HANDLE) {
@@ -162,17 +192,34 @@ bool CheckEliminationOrTimeout() {
     // Check timeout
     float roundTimeLeft = GameRules_GetPropFloat("m_fRoundTimeLeft");
     if (roundTimeLeft == 0.0) {
-        if (TIEBREAKER_ENABLED) {
+        if (g_cvTieBreaker.IntValue == 1) {
+            // Reward team with most players alive
             if (aliveNsf < aliveJinrai) {
                 RewardWin(TEAM_JINRAI);
                 EndRound(GAMEHUD_JINRAI);
+            } else if (aliveJinrai < aliveNsf) {
+                RewardWin(TEAM_NSF);
+                EndRound(GAMEHUD_NSF);
+            } else {
+                EndRound(GAMEHUD_TIE);
             }
-            if (aliveJinrai < aliveNsf) {
+            return true;
+        }
+        
+        if (g_cvTieBreaker.IntValue == 2 || g_cvTieBreaker.IntValue == 3) {
+            // Reward defending team
+            int m_iAttackingTeam = GameRules_GetProp("m_iAttackingTeam");
+            if (m_iAttackingTeam == TEAM_NSF || (g_cvSwapAttackers && m_iAttackingTeam == TEAM_JINRAI)) {
+                RewardWin(TEAM_JINRAI);
+                EndRound(GAMEHUD_JINRAI);
+            } else {
                 RewardWin(TEAM_NSF);
                 EndRound(GAMEHUD_NSF);
             }
             return true;
         }
+
+        // Always tie
         EndRound(GAMEHUD_TIE);
         return true;
     }
@@ -181,6 +228,12 @@ bool CheckEliminationOrTimeout() {
 }
 
 bool CheckGhostCap() {
+    int m_bFreezePeriod = GameRules_GetProp("m_bFreezePeriod");
+    if (m_bFreezePeriod) {
+        // Don't cap during freeze period, fixes the double cap bug.
+        return false;
+    }
+
     int numCapZones = LoadFromAddress(view_as<Address>(0x22542740), NumberType_Int32);
     Address capZoneList = view_as<Address>(LoadFromAddress(view_as<Address>(0x22542734), NumberType_Int32));
     int numGhosts = LoadFromAddress(view_as<Address>(0x225443B8), NumberType_Int32);
