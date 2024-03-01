@@ -13,7 +13,13 @@ When tie breaker is set to 2, swap attackers/defenders. Might make some maps mor
 0 = Disabled  
 1 = Enabled
 
+_sm_nt_wincond_captime_  
+How many seconds should it take to capture the ghost.
+
 ## Changelog
+
+### 0.0.5
+* Add cvar for cap timer
 
 ### 0.0.4
 * Fix double cap bug

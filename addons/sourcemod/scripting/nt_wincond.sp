@@ -5,7 +5,7 @@
 #pragma semicolon 1
 #pragma newdecls required
 
-#define PLUGIN_VERSION "0.0.4"
+#define PLUGIN_VERSION "0.0.5"
 
 #define GAMEHUD_TIE 3
 #define GAMEHUD_JINRAI 4
@@ -25,6 +25,9 @@ public Plugin myinfo = {
 
 ConVar g_cvTieBreaker;
 ConVar g_cvSwapAttackers;
+ConVar g_cvCapTime;
+
+float g_fCapCompleteTime = -1.0;
 
 public void OnPluginStart() {
     CreateDetour();
@@ -34,6 +37,7 @@ public void OnPluginStart() {
     CreateConVar("sm_nt_wincond_version", PLUGIN_VERSION, "NT Win Condition version", FCVAR_DONTRECORD);
     g_cvTieBreaker = CreateConVar("sm_nt_wincond_tiebreaker", "0", "Tie breaker. 0 = disabled, 1 = team with most players alive wins, 2 = defending team wins", _, true, 0.0, true, 2.0);
     g_cvSwapAttackers = CreateConVar("sm_nt_wincond_swapattackers", "0", "When tie breaker is set to defending team, swap attackers/defenders. Might make some maps more playable.", _, true, 0.0, true, 1.0);
+    g_cvCapTime = CreateConVar("sm_nt_wincond_captime", "0", "How long it takes to capture the ghost", _, true, 0.0);
 }
 
 void CreateDetour() {
@@ -189,6 +193,11 @@ bool CheckEliminationOrTimeout() {
         return true;
     }
 
+    // Don't timeout if capping the ghost
+    if (g_fCapCompleteTime > 0.0) {
+        return false;
+    }
+
     // Check timeout
     float roundTimeLeft = GameRules_GetPropFloat("m_fRoundTimeLeft");
     if (roundTimeLeft == 0.0) {
@@ -262,6 +271,17 @@ bool CheckGhostCap() {
                 float distance = SquareRoot(x*x + y*y + z*z);
                 int m_Radius = LoadFromAddress(p_capZone + view_as<Address>(0x364), NumberType_Int32);
                 if (distance <= m_Radius) {
+                    if (g_cvCapTime.FloatValue > 0.0) {
+                        if (g_fCapCompleteTime < 0.0) {
+                            g_fCapCompleteTime = GetGameTime() + g_cvCapTime.FloatValue;
+                        }
+
+                        if (GetGameTime() < g_fCapCompleteTime) {
+                            PrintCenterTextAll("- %N is capturing the ghost! %.2f -", carrier, g_fCapCompleteTime - GetGameTime());
+                            return false;
+                        }
+                    }
+
                     // Announce capper
                     GameRules_SetProp("m_iMVP", carrier);
                     RewardWin(carryingTeam, true);
@@ -275,6 +295,7 @@ bool CheckGhostCap() {
             }
         }
     }
+    g_fCapCompleteTime = -1.0;
     return false;
 }
 
