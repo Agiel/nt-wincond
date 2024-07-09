@@ -182,6 +182,10 @@ bool CheckEliminationOrTimeout() {
     }
 
     // Check elimination
+    if (aliveNsf == 0 && aliveJinrai == 0) {
+        EndRound(GAMEHUD_TIE);
+        return true;
+    }
     if (aliveNsf == 0) {
         RewardWin(TEAM_JINRAI);
         EndRound(GAMEHUD_JINRAI);
