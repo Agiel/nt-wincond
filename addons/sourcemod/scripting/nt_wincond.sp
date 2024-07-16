@@ -183,11 +183,7 @@ bool CheckEliminationOrTimeout() {
 
     // Check elimination
     if (aliveNsf == 0 && aliveJinrai == 0) {
-        if (g_cvTieBreaker.IntValue == 0 || g_cvTieBreaker.IntValue == 1) {
-            EndRound(GAMEHUD_TIE);
-        } else if (g_cvTieBreaker.IntValue == 2 || g_cvTieBreaker.IntValue == 3) {
-            DefendingTeamWin();
-        }
+        HandleTie();
         return true;
     }
     if (aliveNsf == 0) {
@@ -229,11 +225,19 @@ bool CheckEliminationOrTimeout() {
         }
 
         // Always tie
-        EndRound(GAMEHUD_TIE);
+        HandleTie();
         return true;
     }
 
     return false;
+}
+
+void HandleTie() {
+    if (g_cvTieBreaker.IntValue == 0 || g_cvTieBreaker.IntValue == 1) {
+	    EndRound(GAMEHUD_TIE);
+	} else if (g_cvTieBreaker.IntValue == 2 || g_cvTieBreaker.IntValue == 3) {
+	    DefendingTeamWin();
+	}
 }
 
 void DefendingTeamWin() {
