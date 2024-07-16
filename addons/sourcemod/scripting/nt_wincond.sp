@@ -15,6 +15,9 @@
 #define GAMETYPE_CTG 1
 #define GAMETYPE_VIP 2
 
+#define ELIM_NONE 0
+#define ELIM_BOTH 1
+
 public Plugin myinfo = {
     name = "NT Win Condition",
     description = "Overloads the win condition checks to allow modding",
@@ -183,7 +186,7 @@ bool CheckEliminationOrTimeout() {
 
     // Check elimination
     if (aliveNsf == 0 && aliveJinrai == 0) {
-        EndRound(GAMEHUD_TIE);
+        HandleTie(ELIM_BOTH);
         return true;
     }
     if (aliveNsf == 0) {
@@ -233,11 +236,33 @@ bool CheckEliminationOrTimeout() {
         }
 
         // Always tie
-        EndRound(GAMEHUD_TIE);
+        HandleTie(ELIM_NONE);
         return true;
     }
 
     return false;
+}
+
+void HandleTie(int elim) {
+    if (elim == ELIM_NONE) {
+        EndRound(GAMEHUD_TIE);
+    }
+	
+    if (elim == ELIM_BOTH) {
+        if (g_cvTieBreaker.IntValue == 2 || g_cvTieBreaker.IntValue == 3) {
+            // Reward defending team
+            int m_iAttackingTeam = GameRules_GetProp("m_iAttackingTeam");
+            if (m_iAttackingTeam == TEAM_NSF || (g_cvSwapAttackers && m_iAttackingTeam == TEAM_JINRAI)) {
+                RewardWin(TEAM_JINRAI);
+                EndRound(GAMEHUD_JINRAI);
+            } else {
+                RewardWin(TEAM_NSF);
+                EndRound(GAMEHUD_NSF);
+            }
+        } else {
+            EndRound(GAMEHUD_TIE);
+        }
+    }
 }
 
 bool CheckGhostCap() {
