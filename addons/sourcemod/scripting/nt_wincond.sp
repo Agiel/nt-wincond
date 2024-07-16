@@ -183,7 +183,11 @@ bool CheckEliminationOrTimeout() {
 
     // Check elimination
     if (aliveNsf == 0 && aliveJinrai == 0) {
-        EndRound(GAMEHUD_TIE);
+        if (g_cvTieBreaker.IntValue == 0 || g_cvTieBreaker.IntValue == 1) {
+            EndRound(GAMEHUD_TIE);
+        } else if (g_cvTieBreaker.IntValue == 2 || g_cvTieBreaker.IntValue == 3) {
+            DefendingTeamWin();
+        }
         return true;
     }
     if (aliveNsf == 0) {
@@ -220,15 +224,7 @@ bool CheckEliminationOrTimeout() {
         }
         
         if (g_cvTieBreaker.IntValue == 2 || g_cvTieBreaker.IntValue == 3) {
-            // Reward defending team
-            int m_iAttackingTeam = GameRules_GetProp("m_iAttackingTeam");
-            if (m_iAttackingTeam == TEAM_NSF || (g_cvSwapAttackers && m_iAttackingTeam == TEAM_JINRAI)) {
-                RewardWin(TEAM_JINRAI);
-                EndRound(GAMEHUD_JINRAI);
-            } else {
-                RewardWin(TEAM_NSF);
-                EndRound(GAMEHUD_NSF);
-            }
+            DefendingTeamWin();
             return true;
         }
 
@@ -238,6 +234,18 @@ bool CheckEliminationOrTimeout() {
     }
 
     return false;
+}
+
+void DefendingTeamWin() {
+    // Reward defending team
+    int m_iAttackingTeam = GameRules_GetProp("m_iAttackingTeam");
+    if (m_iAttackingTeam == TEAM_NSF || (g_cvSwapAttackers && m_iAttackingTeam == TEAM_JINRAI)) {
+        RewardWin(TEAM_JINRAI);
+        EndRound(GAMEHUD_JINRAI);
+    } else {
+        RewardWin(TEAM_NSF);
+        EndRound(GAMEHUD_NSF);
+    }
 }
 
 bool CheckGhostCap() {
