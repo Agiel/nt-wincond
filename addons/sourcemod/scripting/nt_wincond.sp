@@ -167,6 +167,25 @@ bool GetOwner(Address ghost) {
     return SDKCall(call, ghost);
 }
 
+void HandleTie() {
+    // Atk/def
+    if (g_cvTieBreaker.IntValue == 2) {
+        // Reward defending team
+        int m_iAttackingTeam = GameRules_GetProp("m_iAttackingTeam");
+        if (m_iAttackingTeam == TEAM_NSF || (g_cvSwapAttackers && m_iAttackingTeam == TEAM_JINRAI)) {
+            RewardWin(TEAM_JINRAI);
+            EndRound(GAMEHUD_JINRAI);
+        } else {
+            RewardWin(TEAM_NSF);
+            EndRound(GAMEHUD_NSF);
+        }
+        return;
+    }
+
+    // Always tie
+    EndRound(GAMEHUD_TIE);
+}
+
 bool CheckEliminationOrTimeout() {
     int aliveJinrai = 0;
     int aliveNsf = 0;
@@ -182,6 +201,10 @@ bool CheckEliminationOrTimeout() {
     }
 
     // Check elimination
+    if (aliveJinrai == 0 && aliveNsf == 0) {
+        HandleTie();
+        return true;
+    }
     if (aliveNsf == 0) {
         RewardWin(TEAM_JINRAI);
         EndRound(GAMEHUD_JINRAI);
@@ -201,6 +224,7 @@ bool CheckEliminationOrTimeout() {
     // Check timeout
     float roundTimeLeft = GameRules_GetPropFloat("m_fRoundTimeLeft");
     if (roundTimeLeft == 0.0) {
+        // Classic tie breaker
         if (g_cvTieBreaker.IntValue == 1) {
             // Reward team with most players alive
             if (aliveNsf < aliveJinrai) {
@@ -215,21 +239,8 @@ bool CheckEliminationOrTimeout() {
             return true;
         }
         
-        if (g_cvTieBreaker.IntValue == 2 || g_cvTieBreaker.IntValue == 3) {
-            // Reward defending team
-            int m_iAttackingTeam = GameRules_GetProp("m_iAttackingTeam");
-            if (m_iAttackingTeam == TEAM_NSF || (g_cvSwapAttackers && m_iAttackingTeam == TEAM_JINRAI)) {
-                RewardWin(TEAM_JINRAI);
-                EndRound(GAMEHUD_JINRAI);
-            } else {
-                RewardWin(TEAM_NSF);
-                EndRound(GAMEHUD_NSF);
-            }
-            return true;
-        }
-
-        // Always tie
-        EndRound(GAMEHUD_TIE);
+        // Defer the rest
+        HandleTie();
         return true;
     }
 

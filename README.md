@@ -18,6 +18,9 @@ How many seconds should it take to capture the ghost.
 
 ## Changelog
 
+### 0.0.6
+* Everyone getting eliminated on the same frame should result in a tie
+
 ### 0.0.5
 * Add cvar for cap timer
 
