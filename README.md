@@ -18,6 +18,10 @@ How many seconds should it take to capture the ghost.
 
 ## Changelog
 
+### 0.0.7
+* Round capzone distance down to nearest integer to match native behavior
+* Save config
+
 ### 0.0.6
 * Everyone getting eliminated on the same frame should result in a tie
 

@@ -5,7 +5,7 @@
 #pragma semicolon 1
 #pragma newdecls required
 
-#define PLUGIN_VERSION "0.0.5"
+#define PLUGIN_VERSION "0.0.7"
 
 #define GAMEHUD_TIE 3
 #define GAMEHUD_JINRAI 4
@@ -38,6 +38,8 @@ public void OnPluginStart() {
     g_cvTieBreaker = CreateConVar("sm_nt_wincond_tiebreaker", "0", "Tie breaker. 0 = disabled, 1 = team with most players alive wins, 2 = defending team wins", _, true, 0.0, true, 2.0);
     g_cvSwapAttackers = CreateConVar("sm_nt_wincond_swapattackers", "0", "When tie breaker is set to defending team, swap attackers/defenders. Might make some maps more playable.", _, true, 0.0, true, 1.0);
     g_cvCapTime = CreateConVar("sm_nt_wincond_captime", "0", "How long it takes to capture the ghost", _, true, 0.0);
+
+    AutoExecConfig();
 }
 
 void CreateDetour() {
@@ -279,7 +281,7 @@ bool CheckGhostCap() {
                 x = x - ghostOrigin[0];
                 y = y - ghostOrigin[1];
                 z = z - ghostOrigin[2];
-                float distance = SquareRoot(x*x + y*y + z*z);
+                int distance = RoundToFloor(SquareRoot(x*x + y*y + z*z));
                 int m_Radius = LoadFromAddress(p_capZone + view_as<Address>(0x364), NumberType_Int32);
                 if (distance <= m_Radius) {
                     if (g_cvCapTime.FloatValue > 0.0) {
