@@ -16,7 +16,15 @@ When tie breaker is set to 2, swap attackers/defenders. Might make some maps mor
 _sm_nt_wincond_captime_  
 How many seconds should it take to capture the ghost.
 
+_sm_nt_wincond_consolation_rounds_  
+How many losses in a row to start receiving consolation xp.  
+0 = Disabled.  
+n = Get 1 xp per round after n rounds.
+
 ## Changelog
+
+### 0.0.8
+* Added opttion to give consolation xp to the losing team after a given amount of losses in a row.
 
 ### 0.0.7
 * Round capzone distance down to nearest integer to match native behavior

@@ -5,7 +5,7 @@
 #pragma semicolon 1
 #pragma newdecls required
 
-#define PLUGIN_VERSION "0.0.7"
+#define PLUGIN_VERSION "0.0.8"
 
 #define GAMEHUD_TIE 3
 #define GAMEHUD_JINRAI 4
@@ -26,8 +26,14 @@ public Plugin myinfo = {
 ConVar g_cvTieBreaker;
 ConVar g_cvSwapAttackers;
 ConVar g_cvCapTime;
+ConVar g_cvConsolationRounds;
+
+ConVar g_cvHalfTimeEnabled;
+ConVar g_cvRoundLimit;
 
 float g_fCapCompleteTime = -1.0;
+int g_iConsecutiveLosses = 0;
+int g_iLastWinningTeam = 0;
 
 public void OnPluginStart() {
     CreateDetour();
@@ -38,8 +44,14 @@ public void OnPluginStart() {
     g_cvTieBreaker = CreateConVar("sm_nt_wincond_tiebreaker", "0", "Tie breaker. 0 = disabled, 1 = team with most players alive wins, 2 = defending team wins", _, true, 0.0, true, 2.0);
     g_cvSwapAttackers = CreateConVar("sm_nt_wincond_swapattackers", "0", "When tie breaker is set to defending team, swap attackers/defenders. Might make some maps more playable.", _, true, 0.0, true, 1.0);
     g_cvCapTime = CreateConVar("sm_nt_wincond_captime", "0", "How long it takes to capture the ghost", _, true, 0.0);
+    g_cvConsolationRounds = CreateConVar("sm_nt_wincond_consolation_rounds", "0", "How many losses in a row before receiving consolation XP", _, true, 0.0);
 
     AutoExecConfig();
+}
+
+public void OnAllPluginsLoaded() {
+    g_cvHalfTimeEnabled = FindConVar("sm_nt_halftime_enabled");
+    g_cvRoundLimit = FindConVar("sm_competitive_round_limit");
 }
 
 void CreateDetour() {
@@ -59,6 +71,18 @@ void CreateDetour() {
 }
 
 Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast) {
+    if (g_cvConsolationRounds.IntValue > 0) {
+        int roundNumber = GameRules_GetProp("m_iRoundNumber");
+        if (roundNumber == 0) {
+            g_iConsecutiveLosses = 0;
+            g_iLastWinningTeam = 0;
+        } else if (g_cvHalfTimeEnabled && g_cvHalfTimeEnabled.BoolValue && g_cvRoundLimit) {
+            if (roundNumber == g_cvRoundLimit.IntValue / 2) {
+                g_iConsecutiveLosses = 0;
+                g_iLastWinningTeam = 0;
+            }
+        }
+    }
     if (g_cvTieBreaker.IntValue == 2) {
         CreateTimer(10.0, AnnounceAttacker);
     }
@@ -107,6 +131,17 @@ void RewardWin(int team, bool ghostCapped = false) {
     int score = GetTeamScore(team);
     SetTeamScore(team, score + 1);
 
+    int consolationRounds = g_cvConsolationRounds.IntValue;
+    if (consolationRounds > 0) {
+        if (g_iLastWinningTeam != team) {
+            g_iConsecutiveLosses = 1;
+        } else {
+            g_iConsecutiveLosses++;
+        }
+    }
+
+    g_iLastWinningTeam = team;
+
     for (int i = 1; i <= MaxClients; i++) {
         if (IsValidClient(i)) {
             int playerTeam = GetClientTeam(i);
@@ -128,6 +163,10 @@ void RewardWin(int team, bool ghostCapped = false) {
                     }
                 }
                 SetPlayerXP(i, xp);
+            } else if (consolationRounds > 0 && g_iConsecutiveLosses >= consolationRounds && playerTeam >= TEAM_JINRAI) {
+                PrintToChat(i, "Rewarding 1 xp due to %d consecutive losses", g_iConsecutiveLosses);
+                int xp = GetPlayerXP(i);
+                SetPlayerXP(i, xp + 1);
             }
         }
     }
