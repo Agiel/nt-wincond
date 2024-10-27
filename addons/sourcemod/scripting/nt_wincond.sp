@@ -5,7 +5,7 @@
 #pragma semicolon 1
 #pragma newdecls required
 
-#define PLUGIN_VERSION "0.0.8"
+#define PLUGIN_VERSION "0.0.9"
 
 #define GAMEHUD_TIE 3
 #define GAMEHUD_JINRAI 4
@@ -27,6 +27,8 @@ ConVar g_cvTieBreaker;
 ConVar g_cvSwapAttackers;
 ConVar g_cvCapTime;
 ConVar g_cvConsolationRounds;
+ConVar g_cvSurvivorBonus;
+ConVar g_cvGhostReward;
 
 ConVar g_cvHalfTimeEnabled;
 ConVar g_cvRoundLimit;
@@ -45,6 +47,8 @@ public void OnPluginStart() {
     g_cvSwapAttackers = CreateConVar("sm_nt_wincond_swapattackers", "0", "When tie breaker is set to defending team, swap attackers/defenders. Might make some maps more playable.", _, true, 0.0, true, 1.0);
     g_cvCapTime = CreateConVar("sm_nt_wincond_captime", "0", "How long it takes to capture the ghost", _, true, 0.0);
     g_cvConsolationRounds = CreateConVar("sm_nt_wincond_consolation_rounds", "0", "How many losses in a row before receiving consolation XP", _, true, 0.0);
+    g_cvSurvivorBonus = CreateConVar("sm_nt_wincond_survivor_bonus", "1", "Whether survivors on the winning team should receive extra xp. Note that disabling this will treat everyone as alive when rewarding ghost caps.", _, true, 0.0, true, 1.0);
+    g_cvGhostReward =CreateConVar("sm_nt_wincond_ghost_reward", "0", "Determines how much xp to reward for a ghost cap.", _, true, 0.0); 
 
     AutoExecConfig();
 }
@@ -148,14 +152,18 @@ void RewardWin(int team, bool ghostCapped = false) {
             if (playerTeam == team) {
                 int xp = GetPlayerXP(i);
                 if (ghostCapped) {
-                    if (!IsPlayerDead(i)) {
-                        xp = RankUp(xp); // Everyone alive goes up a rank
+                    if (!g_cvSurvivorBonus.BoolValue || !IsPlayerDead(i)) {
+                        if (g_cvGhostReward.IntValue == 0) {
+                            xp = RankUp(xp); // Everyone alive goes up a rank
+                        } else {
+                            xp += g_cvGhostReward.IntValue;
+                        }
                     } else {
                         xp++; // Consolation prize for the rest
                     }
                 } else {
                     xp++; // +1 for winning
-                    if (!IsPlayerDead(i)) {
+                    if (g_cvSurvivorBonus.BoolValue && !IsPlayerDead(i)) {
                         xp++; // +1 for staying alive
                     }
                     if (IsPlayerCarryingGhost(i)) {
@@ -164,7 +172,6 @@ void RewardWin(int team, bool ghostCapped = false) {
                 }
                 SetPlayerXP(i, xp);
             } else if (consolationRounds > 0 && g_iConsecutiveLosses >= consolationRounds && playerTeam >= TEAM_JINRAI) {
-                PrintToChat(i, "Rewarding 1 xp due to %d consecutive losses", g_iConsecutiveLosses);
                 int xp = GetPlayerXP(i);
                 SetPlayerXP(i, xp + 1);
             }
