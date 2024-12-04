@@ -22,7 +22,7 @@ How many losses in a row to start receiving consolation xp.
 n = Get 1 xp per round after n rounds  
 
 _sm_nt_wincond_survivor_bonus_  
-Whether survivors on the winning team should receive extra xp. Note that disabling this will treat everyone as alive when rewarding ghost caps.  
+Whether survivors on the winning team should receive extra xp.  
 0 = Disabled  
 1 = Enabled (Default)  
 
@@ -31,7 +31,16 @@ Determines how much xp to reward for a ghost cap.
 0 = Rank up (Default)  
 n = n xp  
 
+_sm_nt_wincond_ghost_reward_dead_  
+Whether dead players should receive the ghost cap reward.  
+0 = Disabled (Default)  
+1 = Enabled  
+
 ## Changelog
+
+### 0.0.10
+* Disabling survivor bonus no longer treats dead players as alive when rewarding ghost caps.
+* Added new cvar to determine whether to reward dead players for ghost caps.
 
 ### 0.0.9
 * Added option to disable the extra xp given to surviving players on the winning team.
