@@ -5,7 +5,7 @@
 #pragma semicolon 1
 #pragma newdecls required
 
-#define PLUGIN_VERSION "0.0.10"
+#define PLUGIN_VERSION "0.0.11"
 
 #define GAMEHUD_TIE 3
 #define GAMEHUD_JINRAI 4
@@ -98,7 +98,10 @@ Action Event_RoundStart(Event event, const char[] name, bool dontBroadcast) {
 
 Action AnnounceAttacker(Handle timer) {
     int m_iAttackingTeam = GameRules_GetProp("m_iAttackingTeam");
-    if (m_iAttackingTeam == TEAM_JINRAI || (g_cvSwapAttackers.IntValue && m_iAttackingTeam == TEAM_NSF)) {
+    if (g_cvSwapAttackers.BoolValue) {
+        m_iAttackingTeam = TEAM_JINRAI + TEAM_NSF - m_iAttackingTeam;
+    }
+    if (m_iAttackingTeam == TEAM_JINRAI) {
         PrintCenterTextAll("- Jinrai are attacking -");
     } else {
         PrintCenterTextAll("- NSF are attacking -");
@@ -222,7 +225,10 @@ void HandleTie() {
     if (g_cvTieBreaker.IntValue == 2) {
         // Reward defending team
         int m_iAttackingTeam = GameRules_GetProp("m_iAttackingTeam");
-        if (m_iAttackingTeam == TEAM_NSF || (g_cvSwapAttackers && m_iAttackingTeam == TEAM_JINRAI)) {
+        if (g_cvSwapAttackers.BoolValue) {
+            m_iAttackingTeam = TEAM_JINRAI + TEAM_NSF - m_iAttackingTeam;
+        }
+        if (m_iAttackingTeam == TEAM_NSF) {
             RewardWin(TEAM_JINRAI);
             EndRound(GAMEHUD_JINRAI);
         } else {

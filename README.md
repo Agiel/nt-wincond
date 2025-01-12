@@ -38,6 +38,9 @@ Whether dead players should receive the ghost cap reward.
 
 ## Changelog
 
+### 0.0.11
+* Fix issue where tiebreaker would always go to Jinrai in ATK mode.
+
 ### 0.0.10
 * Disabling survivor bonus no longer treats dead players as alive when rewarding ghost caps.
 * Added new cvar to determine whether to reward dead players for ghost caps.
@@ -47,7 +50,7 @@ Whether dead players should receive the ghost cap reward.
 * Added option to change the ghost cap reward to a flat amount instead of rank up.
 
 ### 0.0.8
-* Added opttion to give consolation xp to the losing team after a given amount of losses in a row.
+* Added option to give consolation xp to the losing team after a given amount of losses in a row.
 
 ### 0.0.7
 * Round capzone distance down to nearest integer to match native behavior
